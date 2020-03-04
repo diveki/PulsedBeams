@@ -68,13 +68,6 @@ class Light:
         self.spectral_beam.spectrum = self._calculate_spectrum(self.beam.temporal_electric_field)
         self.spectral_beam = Spectral_Profile()
 
-    
-
-
-
-
-    
-
     def _lambda2omega(self, value):
         return 2*np.pi*sc.c / value
 
@@ -112,7 +105,7 @@ class Light:
 class Temporal_Envelope_Profile:
     def __init__(self, amp=1, FWHM=None, spread = None, t=None, t0=0, phase=None, lambda0=None, pol='x', spectral=None):
         if isinstance(spectral, Spectral_Profile):
-            pass
+            self._create_temporal_from_spectrum(spectral)
         else:
             self.amplitude = amp  
             if FWHM == None and spread == None:
@@ -184,11 +177,26 @@ class Temporal_Envelope_Profile:
             self.update_beam()
 
     def from_temporal2spectral(self):
-    #     self.spectral_beam.delta_omega = self._calculate_delta_omega(self.beam.t)
-    #     self.spectral_beam.omega = self._calculate_omega(self.beam.t, self.beam.omega0, self.spectral_beam.delta_omega)
-    #     self.spectral_beam.lambdas = self._calculate_lambdas(self.spectral_beam.omega)
-    #     self.spectral_beam.spectrum = self._calculate_spectrum(self.beam.temporal_electric_field)
         return Spectral_Profile(temporal=self)
+    
+    def _create_temporal_from_spectrum(self, obj):
+        self.polarization = obj.polarization
+    #     self.lambda0 = obj.lambda0
+    #     self.omega0 = obj.omega0
+    #     self._create_frequencies(obj.t, self.omega0)
+    #     self.spectrum = self._calculate_spectrum(obj.temporal_electric_field)
+
+    # def _create_frequencies(self, t, omega0):
+    #     self.delta_omega = get_fft_delta_omega(t)
+    #     self.omega = self._calculate_omega(t, self.delta_omega)
+    #     self.lambdas = lambda2omega(self.omega)
+    
+    # def _calculate_omega(self, t, dw):
+    #     return np.fft.fftshift(np.fft.fftfreq(len(t)))*len(t)*dw
+
+    # def _calculate_spectrum(self, ef):
+    #     return np.fft.fftshift(np.fft.fft(ef, norm='ortho'))
+
 
 
 class Spectral_Profile:
@@ -208,14 +216,31 @@ class Spectral_Profile:
 #         self.set_params()
     
     def _create_spectrum_from_temporal(self, obj):
+        '''
+        obj - instance of Temporal_Envelope_Profile
+        --------------------------------
+        with fft it calculates the complex spectrum
+        amplitude = abs(spectrum)
+        phase     = angle(spectrum)
+        to get back the spectrum: amplitude * np.exp(1j*phase)
+        '''
         self.polarization = obj.polarization
         self.lambda0 = obj.lambda0
         self.omega0 = obj.omega0
         self._create_frequencies(obj.t, self.omega0)
         self.spectrum = self._calculate_spectrum(obj.temporal_electric_field)
+        self.amplitude = np.abs(self.spectrum)
+        self.phase = np.angle(self.spectrum)
+        self.w_spread, self.lbd_spread = self._get_power_width(self.omega, np.abs(self.spectrum)**2)
+
+    def _get_power_width(self, omega, power_spectrum):
+        r1, r2 = find_FWHM(omega, power_spectrum)
+        l2, l1 = lambda2omega(r1), lambda2omega(r2)
+        return r2-r1, l2-l1
 
     def _create_frequencies(self, t, omega0):
         self.delta_omega = get_fft_delta_omega(t)
+        self.delta_lambda = lambda2omega(self.delta_omega)
         self.omega = self._calculate_omega(t, self.delta_omega)
         self.lambdas = lambda2omega(self.omega)
     
