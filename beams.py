@@ -105,6 +105,7 @@ class Light:
 class Temporal_Envelope_Profile:
     def __init__(self, amp=1, FWHM=None, spread = None, t=None, t0=0, phase=None, lambda0=None, pol='x', spectral=None):
         if isinstance(spectral, Spectral_Profile):
+            print('I was here')
             self._create_temporal_from_spectrum(spectral)
         else:
             self.amplitude = amp  
@@ -181,26 +182,32 @@ class Temporal_Envelope_Profile:
     
     def _create_temporal_from_spectrum(self, obj):
         self.polarization = obj.polarization
-    #     self.lambda0 = obj.lambda0
-    #     self.omega0 = obj.omega0
-    #     self._create_frequencies(obj.t, self.omega0)
-    #     self.spectrum = self._calculate_spectrum(obj.temporal_electric_field)
+        self.lambda0 = obj.lambda0
+        self.omega0 = obj.omega0
+        self._create_times(obj.omega, self.omega0)
+        tspec = self._calculate_temporal_profile_from_spectrum(obj.spectrum)
+        self.amplitude = np.abs(self.tspec)
+        self.phase = np.angle(self.tspec)
+        t1, t2 = find_FWHM(self.t, np.abs(tspec)**2)
+        self.FWHM = t2 - t1
+        self.t0 = np.mean(t1,t2)
 
-    # def _create_frequencies(self, t, omega0):
-    #     self.delta_omega = get_fft_delta_omega(t)
-    #     self.omega = self._calculate_omega(t, self.delta_omega)
-    #     self.lambdas = lambda2omega(self.omega)
+    def _create_times(self, omega, omega0):
+        delta_t = get_fft_delta_omega(omega)
+        self.t = self._calculate_omega(omega, delta_t)
     
-    # def _calculate_omega(self, t, dw):
-    #     return np.fft.fftshift(np.fft.fftfreq(len(t)))*len(t)*dw
+    def _calculate_t(self, omega, dt):
+        return np.fft.fftshift(np.fft.fftfreq(len(omega)))*len(omega)*dt
 
-    # def _calculate_spectrum(self, ef):
-    #     return np.fft.fftshift(np.fft.fft(ef, norm='ortho'))
+    def _calculate_temporal_profile_from_spectrum(self, spectrum):
+        return np.fft.ifft(np.fft.fftshift(spectrum, norm='ortho'))
 
 
 
 class Spectral_Profile:
-    def __init__(self, amp=1, delta_lambda=None, spread = None, lambdas=None, phase=None, lambda0=None, pol='x', temporal=None):
+    def __init__(self, amp=1, lbd_spread=None, spread = None, lambdas=None, phase=None, lambda0=None, pol='x', temporal=None):
+        import pdb
+        pdb.set_trace()
         if isinstance(temporal, Temporal_Envelope_Profile):
             self._create_spectrum_from_temporal(temporal)
         else:
@@ -239,9 +246,9 @@ class Spectral_Profile:
         return r2-r1, l2-l1
 
     def _create_frequencies(self, t, omega0):
-        self.delta_omega = get_fft_delta_omega(t)
-        self.delta_lambda = lambda2omega(self.delta_omega)
-        self.omega = self._calculate_omega(t, self.delta_omega)
+        delta_omega = get_fft_delta_omega(t)
+        delta_lambda = lambda2omega(delta_omega)
+        self.omega = self._calculate_omega(t, delta_omega)
         self.lambdas = lambda2omega(self.omega)
     
     def _calculate_omega(self, t, dw):
@@ -249,6 +256,9 @@ class Spectral_Profile:
 
     def _calculate_spectrum(self, ef):
         return np.fft.fftshift(np.fft.fft(ef, norm='ortho'))
+
+    def from_spectral2temporal(self):
+        return Temporal_Envelope_Profile(spectral=self)
 
   
 #     def set_params(self):
